@@ -16,6 +16,10 @@ PYTHON  = '/usr/bin/python3'
 THIS    = os.path.realpath(os.path.abspath(__file__))
 THISDIR = os.path.dirname(THIS)
 
+# File signature string
+FILESIG = "4s3\0\0m13".encode('utf-8')
+MINSIZE = 168
+
 # Static classes
 asymmetricCryptography = AsymmetricKey()
 symmetricCryptography  = SymmetricKey()
@@ -140,7 +144,8 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePath
             encryptedDataSig = hashlib.sha256(encryptedData).digest()
 
         # Combine the results of the previous steps into a single file
-        # The file is structured as follows:
+        # The resulting file is structured as follows:
+        #   - 6 bytes:  file signature
         #   - 32 bytes: encrypted symmetric key signature
         #   - 32 bytes: encrypted symmetric key length
         #   - N bytes:  encrypted symmetric key
@@ -149,7 +154,7 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePath
         #   - N bytes:  encrypted metadata
         #   - 32 bytes: encrypted data signature
         #   - N bytes:  encrypted data
-        ciphertext = encryptedSymkeySig + encryptedSymkeyLen + encryptedSymkey + encryptedMetadataSig + encryptedMetadataLen + encryptedMetadata + encryptedDataSig + encryptedData
+        ciphertext = FILESIG + encryptedSymkeySig + encryptedSymkeyLen + encryptedSymkey + encryptedMetadataSig + encryptedMetadataLen + encryptedMetadata + encryptedDataSig + encryptedData
 
         # Write the file to disk
         if samePaths:
@@ -196,19 +201,32 @@ def decrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, verbose)
         if verbose:
             print("File located: " + ciphertextFilePath)
 
+        # Reject the file if it is too small
+        # In reality, the given number of bytes is still too small, due to variable length fields not being included in the amount
+        # However, it's a good enough heuristic (and optimization) to prevent the program from crashing
+        # This will at least assure there's enough bytes to read the file signature
+        if os.path.getsize(ciphertextFilePath) <= MINSIZE:
+            print("Warning: File rejected: \"" + ciphertextFilePath + "\" is less than the minimum-required size.")
+            continue
+
         # Read the file
         ciphertext = None
         with open(ciphertextFilePath, 'rb') as cf:
             ciphertext = cf.read()
 
+        # Verify the file signature
+        if ciphertext[0:6] != FILESIG:
+            print("Warning: File rejected: \"" + ciphertextFilePath + "\" lacks the necessary signature.")
+            continue
+
         # Offset to manage the current context
-        offset = 0
+        offset = 6
 
         # Read the length of the encrypted symmetric key
-        encryptedSymkeyLen = int.from_bytes(ciphertext[32:64], byteorder = 'big')
+        encryptedSymkeyLen = int.from_bytes(ciphertext[(offset + 32):(offset + 64)], byteorder = 'big')
 
         # Attempt to decrypt the encrypted symmetric key
-        encryptedSymkey = ciphertext[64:(64 + encryptedSymkeyLen)]
+        encryptedSymkey = ciphertext[(offset + 64):(offset + 64 + encryptedSymkeyLen)]
         symkey          = None
         try:
             symkey = asymmetricCryptography.decrypt(encryptedSymkey)
@@ -221,7 +239,7 @@ def decrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, verbose)
         symmetricCryptography.importKey(symkey)
         
         # Verify the encrypted symmetric key signature
-        encryptedSymkeySig = ciphertext[0:32]
+        encryptedSymkeySig = ciphertext[offset:(offset + 32)]
         if pepper:
             if hmac.new(pepper, encryptedSymkey, hashlib.sha256).digest() != encryptedSymkeySig:
                 print("Error: Failed to decrypt \"" + ciphertextFilePath + "\".")

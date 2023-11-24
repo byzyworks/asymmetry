@@ -147,11 +147,11 @@ def main(argv):
     # Start encryption/decryption process
     if doEncrypt:
         if verbose:
-            print("Attempting to encrypt files in " + input + " into " + output + " using key " + key + "...")
+            print("Attempting to encrypt files in \"" + input + "\" into \"" + output + "\" using key \"" + key + "\"...")
         encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePaths, verbose)
     else:
         if verbose:
-            print("Attempting to decrypt files in " + input + " into " + output + " using key " + key + "...")
+            print("Attempting to decrypt files in \"" + input + "\" into \"" + output + "\" using key \"" + key + "\"...")
         decrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, verbose)
 
 if __name__ == "__main__":
