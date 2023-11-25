@@ -16,7 +16,8 @@ PYTHON  = '/usr/bin/python3'
 THIS    = os.path.realpath(os.path.abspath(__file__))
 THISDIR = os.path.dirname(THIS)
 
-# File signature string
+# Notable constants
+FILEEXT = ".asym"
 FILESIG = "4s3\0\0m13".encode('utf-8')
 MINSIZE = 168
 
@@ -65,12 +66,10 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePath
         # This makes sure directory information is not leaked in the encrypted output
         # The pepper prevents brute-forcing that information where it's easily guessable (so long as the pepper is secure)
         # To allow files to be updated, always use the same pepper when writing to the same directories, or else the output will be append-only
-        # If the retainDir option is enabled, the pathing of the input retained (with periods in the filename converted to underscores), so none of the above applies
+        # If the retainDir option is enabled, the pathing of the input retained (with an added file extension), so none of the above applies
         ciphertextFilePath = None
         if samePaths:
-            ciphertextFileDir  = os.path.dirname(truncatedPlaintextFilePath)
-            ciphertextFileName = os.path.basename(truncatedPlaintextFilePath).replace('.', '_')
-            ciphertextFilePath = os.path.join(output, ciphertextFileDir, ciphertextFileName)
+            ciphertextFilePath = os.path.join(output, truncatedPlaintextFilePath + FILEEXT)
         else:
             ciphertextFileId = None
             if pepper:
@@ -145,14 +144,14 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePath
 
         # Combine the results of the previous steps into a single file
         # The resulting file is structured as follows:
-        #   - 6 bytes:  file signature
-        #   - 32 bytes: encrypted symmetric key signature
+        #   - 8 bytes:  filetype signature (constant)
+        #   - 32 bytes: encrypted symmetric key (HMAC-)SHA-256 signature
         #   - 32 bytes: encrypted symmetric key length
         #   - N bytes:  encrypted symmetric key
-        #   - 32 bytes: encrypted metadata signature
+        #   - 32 bytes: encrypted metadata (HMAC-)SHA-256 signature
         #   - 32 bytes: encrypted metadata length
         #   - N bytes:  encrypted metadata
-        #   - 32 bytes: encrypted data signature
+        #   - 32 bytes: encrypted data (HMAC-)SHA-256 signature
         #   - N bytes:  encrypted data
         ciphertext = FILESIG + encryptedSymkeySig + encryptedSymkeyLen + encryptedSymkey + encryptedMetadataSig + encryptedMetadataLen + encryptedMetadata + encryptedDataSig + encryptedData
 
