@@ -13,7 +13,7 @@ class AsymmetricKey:
         if passFile == None:
             return None
         with open(passFile, "rb") as f:
-            return f.read().rstrip()
+            return f.read()
 
     def importKey(self, keyPath, doEncrypt = True, passFile = None):
         # Import the key
