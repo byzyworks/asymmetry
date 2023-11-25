@@ -1,0 +1,55 @@
+# Asymmetry File System
+
+Asymmetry File System is a Python-based command line utility for bulk file encryption (not to be confused with "filesystems" such as NTFS or ext4 - this is not that, technically-speaking).
+
+## Reasoning
+
+This was created as a way to create and support systems of files which can be "write-only", or more accurately, "append-only", in the sense that the mechanisms for reading vs. writing to affected directories can be separated out. As a result of this desire are a couple of design decisions that influenced the making of this:
+
+The first should be pretty obvious. AFS uses asymmetric encryption for the affected files (more accurately, they are encrypted via. symmetric encryption for performance reasons, with each per-file auto-generated symmetric key is encrypted via. a pre-generated asymmetric public(?) key from the user). If the private key for decryption is withheld, then the user could still easily append their system with new encrypted files (encrypted via. their public key) - they just would not be able to view the underlying plaintext of those files.
+
+Similar to this, and unlike a similar program with different aims such as Veracrypt, it would not be possible to perform block-level encryption anymore for the same reason that a block-level device is often analogous to a single file, and without automatic support for modifying files after they have been encrypted, the same could be said for entire filesystems inside of block devices if block-level encryption is to be attempted asymmetrically, thus permitting neither reads or writes to it (new/updated/deleted files) without the private key, and defeating its entire purpose.
+
+## What This Does
+
+This script takes an input directory, traverses the files inside it recursively, encrypting each file one-by-one, and then outputs each of the encrypted files into an output directory. By default, file "metadata" is also encrypted, including the file's relative path within the input directory, such that once the file is encrypted, it is stored flat inside the output directory (regardly of how nested within the input directory it was previously) with a name that is hashed from said file path, which can be HMAC'd with a shared pepper file for additional security against known-plaintext cryptanalysis. This scheme reveals minimal information with the intended exception of maintaining that two files should never have conflicting plaintext file paths, such that no two ciphertext files ever map to the same plaintext file. If the pepper between two files at risk of overlap is ever changed, this is not guaranteed, just as if, for whatever reason, these files are renamed by the user in other ways.
+
+```
+out/f21c0f03b1496aa41a54579705ac5c1376d446dec7cde4c533fb26712fc9df32 <- in/3
+out/6c4789c44ded3b8f4695fb833951904f7b912a43ce59c12331f15dd41d1d8892 <- in/a/1
+out/2c26e7def7f5d1764ac89e13e6745c5335242b852e789e3d39cfeb972e48be3a <- in/b/2.txt
+```
+
+The encryption process is made up of three parts:
+
+1. A constant 8-byte filetype signature is appended at the start of the encrypted file to notify the file was encrypted using this process.
+
+2. A symmetric 256-bit AES key is generated for the file, which is then encrypted with the user-provided asymmetric public key, and then SHA-256 hashed (HMAC'd as well if a pepper is provided). Each of these acquired pieces are then stored with the encrypted file in three respective parts: the hash/MAC (32 bytes), the length of the encrypted key in bytes (32 bytes), and the encrypted symmetric key (variable bytes).
+
+3. Metadata, including the file's relative path (within the input directory), it's last-modified date, UID, GID, and permission bits, is compiled into a JSON-formatted structure and encrypted with the symmetric key, and then SHA-256 hashed (HMAC'd as well if a pepper is provided). Each of these acquired pieces are then stored with the encrypted file in three respective parts: the hash/MAC (32 bytes), the length of the encrypted metadata in bytes (32 bytes), and the encrypted metadata (variable bytes).
+
+4. The file data itself is encrypted with the symmetric key, and then SHA-256 hashed (HMAC'd as well if a pepper is provided). Each of these acquired pieces are then stored with the encrypted file in two respective parts: the hash/MAC (32 bytes), and the encrypted file data (variable bytes), which extends until the end of the encrypted file.
+
+Similarly, with decryption:
+
+1. The script attempts to verify the file was created via. this same script's encryption process by verifying the filetype signature (it will skip over non-applicable files this way)
+
+2. The encrypted symmetric key is hashed and verified against the stored hash/MAC (using the pepper if necessary). If verification fails, the file is skipped. If not, the symmetric key is decrypted with the user-provided asymmetric private key, and the process continues.
+
+3. The encrypted metadata is hashed and verified against the stored hash/MAC (using the pepper if necessary). If verification fails, the file is skipped. If not, the metadata is decrypted (and parsed) with the already-decrypted symmetric key, and the process continues. Various checks are made regarding the plaintext file path at this point (such as to avoid conflict in the output directory).
+
+4. The encrypted metadata is hashed and verified against the stored hash/MAC (using the pepper if necessary). If verification fails, the file is skipped. If not, the file is decrypted with the already-decrypted symmetric key, and the file is stored accordingly with the already-decrypted metadata applied over it, including its original relative path.
+
+## Additional Features
+
+* The original pathing of the files encrypted using this process can optionally be maintained via. an argument to the script "`--retain-paths`". The only thing that changes about the file paths in the output (in this case) is that a file extension ".asym" is added to each file to prevent Windows systems from attempting to read the data in the files according to their original extensions.
+
+* Plaintext file paths can be filtered within the input (whether encrypting or decrypting) according to a relative path that the user can give via "`--narrow=...`". Files that lie outside of this path (in their plaintext forms) are thus ignored from encryption/decryption.
+
+* Dry runs are possible via. "`--ls`", which will stop the script short of actually encrypting/decrypting anything. This should be paired with "`--verbose`".
+
+## Notable Issues
+
+This was tested using an 2048-bit RSA keypair generated via. OpenSSL to an X.509 certificate (.pem/.pub). It does not currently work with Ed25519 keypairs (my personal favorite), and is not verified to work with ECDSA keypairs, or with keypairs which are not X.509-formatted, such as those generated via. OpenSSH or PuTTy.
+
+In general, the choice of algorithms is relatively inflexible, and based on personal preference with respect to upholding strong security. The option of what algorithms to use could be provided in the future to make the script more useful.
