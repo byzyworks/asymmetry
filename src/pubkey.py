@@ -9,7 +9,13 @@ class AsymmetricKey:
     def __init__(self):
         self.key = None
 
-    def importKey(self, keyPath, doEncrypt = True):
+    def importPassword(self, passFile):
+        if passFile == None:
+            return None
+        with open(passFile, "rb") as f:
+            return f.read().rstrip()
+
+    def importKey(self, keyPath, doEncrypt = True, passFile = None):
         # Import the key
         if doEncrypt:
             with open(keyPath, "rb") as key_file:
@@ -21,10 +27,10 @@ class AsymmetricKey:
             with open(keyPath, "rb") as key_file:
                 self.key = serialization.load_pem_private_key(
                     key_file.read(),
-                    password = None,
+                    password = self.importPassword(passFile),
                     backend  = default_backend()
                 )
-        
+
         return self.key
     
     def encrypt(self, message):

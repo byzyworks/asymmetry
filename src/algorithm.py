@@ -40,7 +40,7 @@ def ls(input):
     # Return the list of files
     return files
 
-def encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePaths, verbose):
+def encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRun, verbose):
     # Import the public key
     asymmetricCryptography.importKey(key, True)
 
@@ -176,12 +176,12 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePath
                 f.write(b'\0' * os.path.getsize(plaintextFilePath))
             os.remove(plaintextFilePath)
 
-def decrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, verbose):
+def decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun, verbose):
     # Track the number of failed files
     failed = 0
 
     # Import the private key
-    asymmetricCryptography.importKey(key, False)
+    asymmetricCryptography.importKey(key, False, passFile)
 
     # Import the pepper
     if pepper:
@@ -214,12 +214,12 @@ def decrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, verbose)
             ciphertext = cf.read()
 
         # Verify the file signature
-        if ciphertext[0:6] != FILESIG:
+        if ciphertext[0:len(FILESIG)] != FILESIG:
             print("Warning: File rejected: \"" + ciphertextFilePath + "\" lacks the necessary signature.")
             continue
 
         # Offset to manage the current context
-        offset = 6
+        offset = len(FILESIG)
 
         # Read the length of the encrypted symmetric key
         encryptedSymkeyLen = int.from_bytes(ciphertext[(offset + 32):(offset + 64)], byteorder = 'big')

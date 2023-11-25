@@ -8,7 +8,7 @@ import sys
 from algorithm import encrypt, decrypt
 
 # Version information
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 # Get script directory
 PYTHON  = '/usr/bin/python3'
@@ -20,20 +20,21 @@ def usage():
     print("Usage: " + PYTHON + " " + THIS + " --encrypt [OPTIONS]")
     print("       " + PYTHON + " " + THIS + " --decrypt [OPTIONS]")
     print("Options:")
-    print("  -c, --cleanup       Enables automatic shredding of files in input directory upon successful output")
-    print("  -d, --decrypt       Flag program to decrypt input directory into output directory (reverse of encryption, cannot be used with it also enabled)")
-    print("  -e, --encrypt       Flag program to encrypt input directory into output directory (reverse of decryption, cannot be used with it also enabled)")
-    print("  -f, --force         Overwrite files in output directory if they already exist")
-    print("  -h, --help          Display help message")
-    print("  -i, --input=<dir>   Input directory (if encrypting should contain plaintext files, and if decrypting should contain encrypted (via. this program) files)")
-    print("  -k, --key=<file>    Asymmetric key file to use for encryption/decryption (if encrypting should be public key, and if decrypting should be private key)")
-    print("  -l, --ls            List the paths of the files in the output directory (paired with their input files), without actually creating them")
-    print("  -n, --narrow=<dir>  Directory inside the input directory (must be encrypted) to narrow the scope of the operation to; for decryption, based on the original directory structure recorded in the encrypted metadata")
-    print("  -o, --output=<dir>  Output directory (if encrypting should contain encrypted files, and if decrypting should contain plaintext files)")
-    print("  -p, --pepper=<file> (Re-usable) secret input used when generating hashed names for the encrypted files (when the metadata is encrypted); optional, but strongly recommended for security reasons")
-    print("  -R, --retain-paths  Retain the metadata and directory structure of the input directory when encrypting (default is to store the files flat with the metadata encrypted)")
-    print("  -v, --verbose       Display verbose output")
-    print("  -V, --version       Display version information")
+    print("  -c, --cleanup         Enables automatic shredding of files in input directory upon successful output")
+    print("  -d, --decrypt         Flag program to decrypt input directory into output directory (reverse of encryption, cannot be used with it also enabled)")
+    print("  -e, --encrypt         Flag program to encrypt input directory into output directory (reverse of decryption, cannot be used with it also enabled)")
+    print("  -f, --force           Overwrite files in output directory if they already exist")
+    print("  -h, --help            Display help message")
+    print("  -i, --input=<dir>     Input directory (if encrypting should contain plaintext files, and if decrypting should contain encrypted (via. this program) files)")
+    print("  -k, --key=<file>      Asymmetric key file to use for encryption/decryption (if encrypting should be public key, and if decrypting should be private key)")
+    print("  -l, --ls              List the paths of the files in the output directory (paired with their input files), without actually creating them")
+    print("  -n, --narrow=<dir>    Directory inside the input directory (must be encrypted) to narrow the scope of the operation to; for decryption, based on the original directory structure recorded in the encrypted metadata")
+    print("  -o, --output=<dir>    Output directory (if encrypting should contain encrypted files, and if decrypting should contain plaintext files)")
+    print("  -P, --passfile=<file> File (or descriptor) with contents to use for decrypting the imported private key for file decryption, if needed")
+    print("  -p, --pepper=<file>   (Re-usable) secret input used when generating hashed names for the encrypted files (when the metadata is encrypted); optional, but strongly recommended for security reasons")
+    print("  -R, --retain-paths    Retain the metadata and directory structure of the input directory when encrypting (default is to store the files flat with the metadata encrypted)")
+    print("  -v, --verbose         Display verbose output")
+    print("  -V, --version         Display version information")
 
 # Show version information
 def version():
@@ -42,7 +43,7 @@ def version():
 def main(argv):
     # Define program arguments
     try:
-        opts, args = getopt.getopt(argv, "cdefhiklnopRvV", [
+        opts, args = getopt.getopt(argv, "cdefhiklnoPpRvV", [
             "cleanup",
             "decrypt",
             "encrypt",
@@ -53,6 +54,7 @@ def main(argv):
             "ls",
             "narrow=",
             "output=",
+            "passfile=",
             "pepper=",
             "retain-paths",
             "verbose",
@@ -71,6 +73,7 @@ def main(argv):
     input     = None
     narrow    = None
     output    = None
+    passFile  = None
     pepper    = None
     samePaths = False
     verbose   = False
@@ -113,6 +116,13 @@ def main(argv):
             if not os.path.isdir(output):
                 print("Error: The output destination is required to be an accessible directory.")
                 sys.exit(2)
+        elif opt in ("-P", "--passfile"):
+            passFile = arg
+            if not os.path.isfile(passFile):
+                print("Error: The passfile is required to be an accessible file.")
+                sys.exit(2)
+            if doEncrypt == True:
+                print("Warning: There is no need for --passfile when encrypting.")
         elif opt in ("-p", "--pepper"):
             pepper = arg
             if not os.path.isfile(pepper):
@@ -148,11 +158,11 @@ def main(argv):
     if doEncrypt:
         if verbose:
             print("Attempting to encrypt files in \"" + input + "\" into \"" + output + "\" using key \"" + key + "\"...")
-        encrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, samePaths, verbose)
+        encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRun, verbose)
     else:
         if verbose:
             print("Attempting to decrypt files in \"" + input + "\" into \"" + output + "\" using key \"" + key + "\"...")
-        decrypt(input, output, key, pepper, narrow, force, cleanup, dryRun, verbose)
+        decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun, verbose)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
