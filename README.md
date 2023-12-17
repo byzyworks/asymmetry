@@ -30,9 +30,11 @@ The encryption process is made up of three parts:
 
 4. The file data itself is encrypted with the symmetric key, and then SHA-256 hashed (HMAC'd as well if a pepper is provided). Each of these acquired pieces are then stored with the encrypted file in two respective parts: the hash/MAC (32 bytes), and the encrypted file data (variable bytes), which extends until the end of the encrypted file.
 
+5. The file is then written to disk in the output directory (flattened) with a name derived from a SHA-256 hash of the file name (HMAC'd as well if a pepper is provided) followed by the ".asym" file extension. The details of this may change depending on enabled program arguments.
+
 Similarly, with decryption:
 
-1. The script attempts to verify the file was created via. this same script's encryption process by verifying the filetype signature (it will skip over non-applicable files this way)
+1. The script attempts to verify the file was created via. this same script's encryption process by verifying the filetype signature (it will skip over non-applicable files this way, or if they're too small to have even the 8-byte signature).
 
 2. The encrypted symmetric key is hashed and verified against the stored hash/MAC (using the pepper if necessary). If verification fails, the file is skipped. If not, the symmetric key is decrypted with the user-provided asymmetric private key, and the process continues.
 
@@ -40,9 +42,11 @@ Similarly, with decryption:
 
 4. The encrypted metadata is hashed and verified against the stored hash/MAC (using the pepper if necessary). If verification fails, the file is skipped. If not, the file is decrypted with the already-decrypted symmetric key, and the file is stored accordingly with the already-decrypted metadata applied over it, including its original relative path.
 
+5. The file is then written to disk in the output directory using the original relative path of the file previously stored in the encrypted metadata, creating the necessary sub-level directories as needed. The details of this may change depending on enabled program arguments.
+
 ## Additional Features
 
-* The original pathing of the files encrypted using this process can optionally be maintained via. an argument to the script "`--retain-paths`". The only thing that changes about the file paths in the output (in this case) is that a file extension ".asym" is added to each file to prevent Windows systems from attempting to read the data in the files according to their original extensions.
+* The original pathing of the files encrypted using this process can optionally be maintained via. an argument to the script "`--retain-paths`". The ".asym" file extension will still be added to the files upon encryption (and subsequently removed upon decryption) unless the "`--no-file-extension`" option is set. It is possible, but not recommended to use "`--retain-paths`" and "`--no-file-extension`" simultaneously.
 
 * Plaintext file paths can be filtered within the input (whether encrypting or decrypting) according to orderly parsing of regular expressions that the user provides through "`--include`" and "`--exclude`", respectively, where the regular expressions identify relative file paths (or part of) in the input directory, always using their plaintext paths for comparison (in the case of encrypted files, this is what is stored in the encrypted metadata, not the actual file path seen by the user). Both options can be provided multiple times, and will be parsed in the order that they appear in a non-greedy way. Note as well that if the first of any is an "`--include`" statement, then the default behavior will be to exclude everything else, and if the first of any is an "`--exclude`" statement, then the default behavior will be to include everything. Files that lie outside of this path (per their plaintext forms) are thus ignored from encryption/decryption.
 
