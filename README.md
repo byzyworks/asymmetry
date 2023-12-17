@@ -20,7 +20,7 @@ out/6c4789c44ded3b8f4695fb833951904f7b912a43ce59c12331f15dd41d1d8892 <- in/a/1
 out/2c26e7def7f5d1764ac89e13e6745c5335242b852e789e3d39cfeb972e48be3a <- in/b/2.txt
 ```
 
-The encryption process is made up of three parts:
+The encryption process is made up of these several parts:
 
 1. A constant 8-byte filetype signature is appended at the start of the encrypted file to notify the file was encrypted using this process.
 
