@@ -1,5 +1,10 @@
 # Change Log
 
+## 1.2.1
+
+- Fixed ciphertext being written back to output on decryption
+- Fixed redundant notification about shredding/deletion of affected files in addition to overwrite notification (with `--force`)
+
 ## 1.2.0
 
 - Removed `--narrow=<path>` command line option, which has now been replaced with `--include=<regex>`

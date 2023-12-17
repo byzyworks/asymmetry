@@ -8,7 +8,7 @@ import sys
 from algorithm import encrypt, decrypt
 
 # Version information
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 # Get script directory
 PYTHON  = '/usr/bin/python3'

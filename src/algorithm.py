@@ -79,7 +79,7 @@ def deleteFile(filePath, doShred, isVerbose):
     os.remove(filePath)
 
 # Writes a temporary file to disk, then renames it to the actual file
-def safeWrite(filePath, data, doShred, isVerbose):
+def safeWrite(filePath, data, doShred):
     with open(filePath + ".tmp", 'wb') as f:
         try:
             f.write(data)
@@ -91,9 +91,9 @@ def safeWrite(filePath, data, doShred, isVerbose):
     # This should only run after the "--force" option is checked for, so it will be skipped otherwise
     if os.path.exists(filePath):
         try:
-            deleteFile(filePath, doShred, isVerbose)
+            deleteFile(filePath, doShred, False)
         except:
-            deleteFile(filePath + ".tmp", doShred, isVerbose)
+            deleteFile(filePath + ".tmp", doShred, False)
             print("Error: Failed to write \"" + filePath + "\".")
             return False
         
@@ -247,7 +247,7 @@ def encrypt(input, output, key, pepper, patterns, doExtension, doForce, doCleanu
                 os.makedirs(ciphertextFileDir)
         
         # Write the file to disk
-        success = safeWrite(ciphertextFilePath, ciphertext, doShred, isVerbose)
+        success = safeWrite(ciphertextFilePath, ciphertext, doShred)
         if success == False:
             continue
         
@@ -434,7 +434,7 @@ def decrypt(input, output, key, passFile, pepper, patterns, doExtension, doForce
             os.makedirs(plaintextFileDir)
         
         # Write the file to disk
-        success = safeWrite(plaintextFilePath, ciphertext, doShred, isVerbose)
+        success = safeWrite(plaintextFilePath, data, doShred)
         if success == False:
             continue
         
