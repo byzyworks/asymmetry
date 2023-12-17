@@ -1,12 +1,12 @@
 # Asymmetry File System
 
-Asymmetry File System is a Python-based command line utility for bulk file encryption (not to be confused with "filesystems" such as NTFS or ext4 - this is not that, technically-speaking).
+Asymmetry File System ("AsyFiS") is a Python-based command line utility for bulk file encryption (not to be confused with "filesystems" such as NTFS or ext4 - this is not that, technically-speaking).
 
 ## Reasoning
 
 This was created as a way to create and support systems of files which can be "write-only", or more accurately, "append-only", in the sense that the mechanisms for reading vs. writing to affected directories can be separated out. As a result of this desire are a couple of design decisions that influenced the making of this:
 
-The first should be pretty obvious. AFS uses asymmetric encryption for the affected files (more accurately, they are encrypted via. symmetric encryption for performance reasons, with each per-file auto-generated symmetric key is encrypted via. a pre-generated asymmetric public(?) key from the user). If the private key for decryption is withheld, then the user could still easily append their system with new encrypted files (encrypted via. their public key) - they just would not be able to view the underlying plaintext of those files.
+The first should be pretty obvious. AsyFiS uses asymmetric encryption for the affected files (more accurately, they are encrypted via. symmetric encryption for performance reasons, with each per-file auto-generated symmetric key is encrypted via. a pre-generated asymmetric public(?) key from the user). If the private key for decryption is withheld, then the user could still easily append their system with new encrypted files (encrypted via. their public key) - they just would not be able to view the underlying plaintext of those files.
 
 Similar to this, and unlike a similar program with different aims such as Veracrypt, it would not be possible to perform block-level encryption anymore for the same reason that a block-level device is often analogous to a single file, and without automatic support for modifying files after they have been encrypted, the same could be said for entire filesystems inside of block devices if block-level encryption is to be attempted asymmetrically, thus permitting neither reads or writes to it (new/updated/deleted files) without the private key, and defeating its entire purpose.
 
@@ -15,9 +15,9 @@ Similar to this, and unlike a similar program with different aims such as Veracr
 This script takes an input directory, traverses the files inside it recursively, encrypting each file one-by-one, and then outputs each of the encrypted files into an output directory. By default, file "metadata" is also encrypted, including the file's relative path within the input directory, such that once the file is encrypted, it is stored flat inside the output directory (regardly of how nested within the input directory it was previously) with a name that is hashed from said file path, which can be HMAC'd with a shared pepper file for additional security against known-plaintext cryptanalysis. This scheme reveals minimal information with the intended exception of maintaining that two files should never have conflicting plaintext file paths, such that no two ciphertext files ever map to the same plaintext file. If the pepper between two files at risk of overlap is ever changed, this is not guaranteed, just as if, for whatever reason, these files are renamed by the user in other ways.
 
 ```
-out/f21c0f03b1496aa41a54579705ac5c1376d446dec7cde4c533fb26712fc9df32 <- in/3
-out/6c4789c44ded3b8f4695fb833951904f7b912a43ce59c12331f15dd41d1d8892 <- in/a/1
-out/2c26e7def7f5d1764ac89e13e6745c5335242b852e789e3d39cfeb972e48be3a <- in/b/2.txt
+out/f21c0f03b1496aa41a54579705ac5c1376d446dec7cde4c533fb26712fc9df32.asym <- in/3
+out/6c4789c44ded3b8f4695fb833951904f7b912a43ce59c12331f15dd41d1d8892.asym <- in/a/1
+out/2c26e7def7f5d1764ac89e13e6745c5335242b852e789e3d39cfeb972e48be3a.asym <- in/b/2.txt
 ```
 
 The encryption process is made up of these several parts:
