@@ -44,7 +44,9 @@ Similarly, with decryption:
 
 * The original pathing of the files encrypted using this process can optionally be maintained via. an argument to the script "`--retain-paths`". The only thing that changes about the file paths in the output (in this case) is that a file extension ".asym" is added to each file to prevent Windows systems from attempting to read the data in the files according to their original extensions.
 
-* Plaintext file paths can be filtered within the input (whether encrypting or decrypting) according to a relative path that the user can give via "`--narrow=...`". Files that lie outside of this path (in their plaintext forms) are thus ignored from encryption/decryption.
+* Plaintext file paths can be filtered within the input (whether encrypting or decrypting) according to orderly parsing of regular expressions that the user provides through "`--include`" and "`--exclude`", respectively, where the regular expressions identify relative file paths (or part of) in the input directory, always using their plaintext paths for comparison (in the case of encrypted files, this is what is stored in the encrypted metadata, not the actual file path seen by the user). Both options can be provided multiple times, and will be parsed in the order that they appear in a non-greedy way. Note as well that if the first of any is an "`--include`" statement, then the default behavior will be to exclude everything else, and if the first of any is an "`--exclude`" statement, then the default behavior will be to include everything. Files that lie outside of this path (per their plaintext forms) are thus ignored from encryption/decryption.
+
+* Automatic deletion of input files is optional with `--cleanup`, which is set as well to zero-fill the files by default before deletion unless `--no-shred` is also set. Automatic deletion of input directories is optional with `--clear-input`, which auto-enables `--cleanup` with set.
 
 * Dry runs are possible via. "`--ls`", which will stop the script short of actually encrypting/decrypting anything. This should be paired with "`--verbose`".
 

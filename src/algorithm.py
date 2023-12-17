@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import fs
-import getopt
 import hashlib
 import hmac
 import json
 import os
+import re
 import sys
 
 from pubkey import AsymmetricKey
@@ -40,7 +39,92 @@ def ls(input):
     # Return the list of files
     return files
 
-def encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRun, verbose):
+# Return true if the file should be included, false otherwise, based on order of presented include/exclude regexes
+def doInclude(filepath, patterns):
+    # Default is to include if no patterns are provided
+    if len(patterns) == 0:
+        return True
+    
+    # If the starting pattern is an exclude pattern, then the default rule is to include
+    # If the starting pattern is an include pattern, then the default rule is to exclude
+    if patterns[0] == True:
+        matched = False
+    else:
+        matched = True
+
+    # Iterate through the patterns (necessarily through all of them always)
+    i = 0
+    while i < len(patterns):
+        include = patterns[i]
+        pattern = patterns[i + 1]
+
+        if re.match(pattern, filepath):
+            matched = include
+
+        i += 2
+    
+    # Return the final answer
+    return matched
+
+# Deletes a file with the option to zero-fill it first
+def deleteFile(filePath, doShred, isVerbose):
+    if doShred:
+        if isVerbose:
+            print("Shredding file: " + filePath)
+        with open(filePath, 'wb') as f:
+            f.write(b'\0' * os.path.getsize(filePath))
+    else:
+        if isVerbose:
+            print("Deleting file: " + filePath)
+    os.remove(filePath)
+
+# Writes a temporary file to disk, then renames it to the actual file
+def safeWrite(filePath, data, doShred, isVerbose):
+    with open(filePath + ".tmp", 'wb') as f:
+        try:
+            f.write(data)
+        except:
+            print("Error: Failed to write \"" + filePath + "\".")
+            return False
+
+    # Overwrite the existing file in the output if it already exists
+    # This should only run after the "--force" option is checked for, so it will be skipped otherwise
+    if os.path.exists(filePath):
+        try:
+            deleteFile(filePath, doShred, isVerbose)
+        except:
+            deleteFile(filePath + ".tmp", doShred, isVerbose)
+            print("Error: Failed to write \"" + filePath + "\".")
+            return False
+        
+    return True
+
+# Clears the input directory
+# This should run after a cleanup of the files that might or might not need to be zero-filled
+# Files left over are thought to be an oversight, 
+def clearInput(input, isVerbose):
+    failedSubdirectories = 0
+
+    if isVerbose:
+        print("Clearing input directory: " + input)
+
+    for root, directories, filenames in os.walk(input, topdown = False):
+        if len(filenames) > 0:
+            print("Error: Failed to clear input directory; there are still files inside of it!")
+            sys.exit(2)
+
+        # Normally, there should only be directories left after the normal cleanup, which should have been done already
+        for directory in directories:
+            try:
+                os.rmdir(os.path.join(root, directory))
+            except:
+                print("Warning: Failed to delete input sub-directory: " + os.path.join(root, directory))
+                failedSubdirectories += 1
+    
+    if failedSubdirectories > 0:
+        sys.exit(2)
+
+def encrypt(input, output, key, pepper, patterns, doExtension, doForce, doCleanup, doShred, doClearInput, doSamePaths, doDryRun, isVerbose):
     # Import the public key
     asymmetricCryptography.importKey(key, True)
 
@@ -57,8 +141,8 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRu
         # Shortcut to not have to type os.path.join() every time
         plaintextFilePath = os.path.join(input, truncatedPlaintextFilePath)
 
-        # Ignore file if it does not exist within the narrow scope filter
-        if narrow and not truncatedPlaintextFilePath.startswith(narrow):
+        # Ignore file if it does not pass through the include/exclude pattern filters
+        if doInclude(truncatedPlaintextFilePath, patterns) == False:
             continue
 
         # Determine the encrypted file name by HMAC-SHA256 hashing the file name with the pepper
@@ -68,8 +152,8 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRu
         # To allow files to be updated, always use the same pepper when writing to the same directories, or else the output will be append-only
         # If the retainDir option is enabled, the pathing of the input retained (with an added file extension), so none of the above applies
         ciphertextFilePath = None
-        if samePaths:
-            ciphertextFilePath = os.path.join(output, truncatedPlaintextFilePath + FILEEXT)
+        if doSamePaths:
+            ciphertextFilePath = os.path.join(output, truncatedPlaintextFilePath)
         else:
             ciphertextFileId = None
             if pepper:
@@ -78,25 +162,29 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRu
                 ciphertextFileId = hashlib.sha256(truncatedPlaintextFilePath.encode('utf-8')).hexdigest()
             ciphertextFilePath   = os.path.join(output, ciphertextFileId)
 
+        # Add the file extension if it is enabled
+        if doExtension:
+            ciphertextFilePath += FILEEXT
+
         # Show the major operation being performed
-        if verbose:
+        if isVerbose:
             print("Encrypting file: " + ciphertextFilePath + " <- " + plaintextFilePath)
 
         # Check if file already exists
         if os.path.exists(ciphertextFilePath):
             # Check if the file should be overwritten
-            if force:
+            if doForce:
                 # Overwrite the file
-                if verbose:
+                if isVerbose:
                     print("Warning: Overwriting file: " + ciphertextFilePath)
             else:
                 # Skip the file
-                if verbose:
+                if isVerbose:
                     print("Warning: Skipping file: " + ciphertextFilePath)
                 continue
 
         # Skip the actual encryption if this is a dry run
-        if dryRun:
+        if doDryRun:
             continue
 
         # Generate a new AES-256-EAX symmetric key that will be used to encrypt the file and its metadata, and encrypt it using the user provided asymmetric key
@@ -114,10 +202,7 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRu
         # Gather the file's metadata (relative path, date modified, permissions, etc.) and format it in a JSON structure, then encrypt it using the symmetric key just created
         metadata = {
             'path':  truncatedPlaintextFilePath,
-            'mtime': os.stat(os.path.join(input, truncatedPlaintextFilePath)).st_mtime,
-            'uid':   os.stat(os.path.join(input, truncatedPlaintextFilePath)).st_uid,
-            'gid':   os.stat(os.path.join(input, truncatedPlaintextFilePath)).st_gid,
-            'mode':  os.stat(os.path.join(input, truncatedPlaintextFilePath)).st_mode
+            'mtime': os.stat(os.path.join(input, truncatedPlaintextFilePath)).st_mtime
         }
         metadata             = json.dumps(metadata).encode('utf-8')
         encryptedMetadata    = bytes(symmetricCryptography.encrypt(metadata))
@@ -155,28 +240,29 @@ def encrypt(input, output, key, pepper, narrow, force, cleanup, samePaths, dryRu
         #   - N bytes:  encrypted data
         ciphertext = FILESIG + encryptedSymkeySig + encryptedSymkeyLen + encryptedSymkey + encryptedMetadataSig + encryptedMetadataLen + encryptedMetadata + encryptedDataSig + encryptedData
 
-        # Write the file to disk
-        if samePaths:
+        # Only if same-paths is enabled, you will have directories in the encrypted output
+        if doSamePaths:
             ciphertextFileDir = os.path.dirname(ciphertextFilePath)
             if not os.path.exists(ciphertextFileDir):
                 os.makedirs(ciphertextFileDir)
-        with open(ciphertextFilePath + ".tmp", 'wb') as cf:
-            cf.write(ciphertext)
         
-        # Overwrite the old file with the new file, if it already exists
-        if os.path.exists(ciphertextFilePath):
-            os.remove(ciphertextFilePath)
+        # Write the file to disk
+        success = safeWrite(ciphertextFilePath, ciphertext, doShred, isVerbose)
+        if success == False:
+            continue
         
         # Rename the temporary file to the actual file
         os.rename(ciphertextFilePath + ".tmp", ciphertextFilePath)
 
         # If cleanup is enabled, delete the plaintext file (after zero-filling it)
-        if cleanup:
-            with open(plaintextFilePath, 'wb') as f:
-                f.write(b'\0' * os.path.getsize(plaintextFilePath))
-            os.remove(plaintextFilePath)
+        if doCleanup:
+            deleteFile(plaintextFilePath, doShred, isVerbose)
+        
+    # Delete everything in the input, directories included, if set to do so
+    if doClearInput:
+        clearInput(input, isVerbose)
 
-def decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun, verbose):
+def decrypt(input, output, key, passFile, pepper, patterns, doExtension, doForce, doCleanup, doShred, doClearInput, doSamePaths, doDryRun, isVerbose):
     # Track the number of failed files
     failed = 0
 
@@ -192,12 +278,12 @@ def decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun
     ciphertextFilePaths = ls(input)
 
     # Iterate through the files
-    for ciphertextFilePath in ciphertextFilePaths:
+    for truncatedCiphertextFilePath in ciphertextFilePaths:
         # Shortcut to not have to type os.path.join() every time
-        ciphertextFilePath = os.path.join(input, ciphertextFilePath)
+        ciphertextFilePath = os.path.join(input, truncatedCiphertextFilePath)
 
         # Show the major operation being performed
-        if verbose:
+        if isVerbose:
             print("File located: " + ciphertextFilePath)
 
         # Reject the file if it is too small
@@ -205,7 +291,7 @@ def decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun
         # However, it's a good enough heuristic (and optimization) to prevent the program from crashing
         # This will at least assure there's enough bytes to read the file signature
         if os.path.getsize(ciphertextFilePath) <= MINSIZE:
-            print("Warning: File rejected: \"" + ciphertextFilePath + "\" is less than the minimum-required size.")
+            print("Warning: File ignored: \"" + ciphertextFilePath + "\" is less than the minimum-required size.")
             continue
 
         # Read the file
@@ -215,7 +301,7 @@ def decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun
 
         # Verify the file signature
         if ciphertext[0:len(FILESIG)] != FILESIG:
-            print("Warning: File rejected: \"" + ciphertextFilePath + "\" lacks the necessary signature.")
+            print("Warning: File ignored: \"" + ciphertextFilePath + "\" lacks the necessary signature.")
             continue
 
         # Offset to manage the current context
@@ -283,32 +369,37 @@ def decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun
         metadata = json.loads(metadata.decode('utf-8'))
         
         # Get the path of the plaintext file
-        truncatedPlaintextFilePath = metadata['path']
-        plaintextFilePath          = os.path.join(output, truncatedPlaintextFilePath)
+        if doSamePaths:
+            truncatedPlaintextFilePath = truncatedCiphertextFilePath
+            if doExtension and truncatedPlaintextFilePath.endswith(FILEEXT):
+                truncatedPlaintextFilePath = truncatedPlaintextFilePath[:-len(FILEEXT)]
+        else:
+            truncatedPlaintextFilePath = metadata['path']
+        plaintextFilePath = os.path.join(output, truncatedPlaintextFilePath)
         
-        # Ignore file if it does not exist within the narrow scope filter
-        if narrow and not truncatedPlaintextFilePath.startswith(narrow):
+        # Ignore file if it does not pass through the include/exclude pattern filters
+        if doInclude(truncatedPlaintextFilePath, patterns) == False:
             continue
 
         # Show the major operation being performed
-        if verbose:
+        if isVerbose:
             print("Decrypting file: " + ciphertextFilePath + " -> " + plaintextFilePath)
 
         # Check if file already exists
         if os.path.exists(plaintextFilePath):
             # Check if the file should be overwritten
-            if force:
+            if doForce:
                 # Overwrite the file
-                if verbose:
+                if isVerbose:
                     print("Warning: Overwriting file: " + plaintextFilePath)
             else:
                 # Skip the file
-                if verbose:
+                if isVerbose:
                     print("Warning: Skipping file: " + plaintextFilePath)
                 continue
 
         # Skip the actual decryption if this is a dry run
-        if dryRun:
+        if doDryRun:
             continue
         
         # Raise the offset for the data
@@ -337,30 +428,31 @@ def decrypt(input, output, key, passFile, pepper, narrow, force, cleanup, dryRun
                 failed += 1
                 continue
         
-        # Attempt to write the file to the path stored in the metadata
+        # Create the required directory structure in the output
         plaintextFileDir = os.path.dirname(plaintextFilePath)
         if not os.path.exists(plaintextFileDir):
             os.makedirs(plaintextFileDir)
-        with open(plaintextFilePath + ".tmp", 'wb') as pf:
-            pf.write(data)
         
-        # Overwrite the old file with the new file, if it already exists
-        if os.path.exists(plaintextFilePath):
-            os.remove(plaintextFilePath)
+        # Write the file to disk
+        success = safeWrite(plaintextFilePath, ciphertext, doShred, isVerbose)
+        if success == False:
+            continue
         
         # Rename the temporary file to the actual file
         os.rename(plaintextFilePath + ".tmp", plaintextFilePath)
 
         # Set the file's other metadata
         os.utime(plaintextFilePath, (metadata['mtime'], metadata['mtime']))
-        os.chown(plaintextFilePath, metadata['uid'], metadata['gid'])
-        os.chmod(plaintextFilePath, metadata['mode'])
 
         # If cleanup is enabled, delete the ciphertext file
-        if cleanup:
-            os.remove(ciphertextFilePath)
-            
+        if doCleanup:
+            deleteFile(ciphertextFilePath, doShred, isVerbose)
+    
     # Print the number of failed files
     if failed > 0:
         print("Error: Failed to decrypt " + str(failed) + " file(s)!")
         sys.exit(2)
+
+    # Delete everything in the input, directories included, if set to do so
+    if doClearInput:
+        clearInput(input, isVerbose)

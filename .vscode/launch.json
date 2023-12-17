@@ -23,6 +23,7 @@
                 "ignoreme/testpepper",
                 "--force",
                 "--verbose"
+                //"--no-file-extension"
             ]
         },
         {
@@ -88,8 +89,35 @@
                 "ignoreme/testpepper",
                 "--force",
                 "--verbose",
-                "--narrow",
-                "b"
+                "--include",
+                "c/",
+                "--exclude",
+                "c/e/",
+                "--include",
+                "(.+)/6"
+            ]
+        },
+        {
+            "name": "Encryption Test + Cleanup",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--encrypt",
+                "--input",
+                "ignoreme/in",
+                "--output",
+                "ignoreme/out",
+                "--key",
+                "ignoreme/testkey.pub",
+                "--pepper",
+                "ignoreme/testpepper",
+                "--force",
+                "--verbose",
+                "--cleanup",
+                "--clear-input"
             ]
         },
         {
@@ -112,7 +140,8 @@
                 "--pepper",
                 "ignoreme/testpepper",
                 "--force",
-                "--verbose",
+                "--verbose"
+                //"--no-file-extension"
             ]
         },
         {
@@ -140,6 +169,30 @@
             ]
         },
         {
+            "name": "Same-Path Decryption Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--decrypt",
+                "--input",
+                "ignoreme/out",
+                "--output",
+                "ignoreme/in",
+                "--key",
+                "ignoreme/testkey.pem",
+                "--passfile",
+                "ignoreme/testpass.txt",
+                "--pepper",
+                "ignoreme/testpepper",
+                "--force",
+                "--verbose",
+                "--retain-paths"
+            ]
+        },
+        {
             "name": "Narrow Decryption Test",
             "type": "python",
             "request": "launch",
@@ -160,9 +213,38 @@
                 "ignoreme/testpepper",
                 "--force",
                 "--verbose",
-                "--narrow",
-                "b"
+                "--include",
+                "c/",
+                "--exclude",
+                "c/e/",
+                "--include",
+                "(.+)/6"
             ]
         },
+        {
+            "name": "Decryption Test + Cleanup",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--decrypt",
+                "--input",
+                "ignoreme/out",
+                "--output",
+                "ignoreme/in",
+                "--key",
+                "ignoreme/testkey.pem",
+                "--passfile",
+                "ignoreme/testpass.txt",
+                "--pepper",
+                "ignoreme/testpepper",
+                "--force",
+                "--verbose",
+                "--cleanup",
+                "--no-shred"
+            ]
+        }
     ]
 }
