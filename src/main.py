@@ -4,6 +4,7 @@ import getopt
 import os
 import re
 import sys
+from   threading import Lock
 
 from algorithm import encrypt, decrypt
 
@@ -47,7 +48,7 @@ def version():
 def main(argv):
     # Define program arguments
     try:
-        opts, args = getopt.getopt(argv, "cdefhi:k:ln:o:P:p:RvVx:", [
+        opts, parsedArgs = getopt.getopt(argv, "cdefhi:k:ln:o:P:p:RvVx:", [
             "cleanup",
             "decrypt",
             "encrypt",
@@ -73,41 +74,47 @@ def main(argv):
         sys.exit(2)
 
     # Variables (with default values) for options
-    doCleanup    = False
-    doClearInput = False
-    doDryRun     = False
-    doEncrypt    = None
-    doExtension  = True
-    doForce      = False
-    doSamePaths  = False
-    doShred      = True
-    input        = None
-    isVerbose    = False
-    key          = None
-    output       = None
-    passFile     = None
-    patterns     = [ ]
-    pepper       = None
+    parsedArgs = {
+        "doCleanup":    False,
+        "doClearInput": False,
+        "doDryRun":     False,
+        "doEncrypt":    None,
+        "doExtension":  True,
+        "doForce":      False,
+        "doSamePaths":  False,
+        "doShred":      True,
+        "input":        None,
+        "isVerbose":    False,
+        "key":          None,
+        "output":       None,
+        "passFile":     None,
+        "patterns":     [ ],
+        "pepper":       None
+    }
+    secrets = {
+        "key":    None,
+        "pepper": None
+    }
     
     # Parse program arguments
     for opt, arg in opts:
         if opt in ("-c", "--cleanup"):
-            doCleanup = True
+            parsedArgs["doCleanup"] = True
         elif opt in ("--clear-input"):
-            doCleanup    = True
-            doClearInput = True
+            parsedArgs["doCleanup"]    = True
+            parsedArgs["doClearInput"] = True
         elif opt in ("-d", "--decrypt"):
-            if doEncrypt == True:
+            if parsedArgs["doEncrypt"] == True:
                 print("Error: Cannot enable both encryption and decryption modes at the same time.")
                 sys.exit(2)
-            doEncrypt = False
+            parsedArgs["doEncrypt"] = False
         elif opt in ("-e", "--encrypt"):
-            if doEncrypt == False:
+            if parsedArgs["doEncrypt"] == False:
                 print("Error: Cannot enable both encryption and decryption modes at the same time.")
                 sys.exit(2)
-            doEncrypt = True
+            parsedArgs["doEncrypt"] = True
         elif opt in ("-f", "--force"):
-            doForce = True
+            parsedArgs["doForce"] = True
         elif opt in ("-h", "--help"):
             usage()
             sys.exit()
@@ -118,49 +125,51 @@ def main(argv):
             except re.error:
                 print("Error: The include pattern is required to be a valid regular expression.")
                 sys.exit(2)
-            patterns.append(True)
-            patterns.append(pattern)
+            parsedArgs["patterns"].append(True)
+            parsedArgs["patterns"].append(pattern)
         elif opt in ("-i", "--input"):
-            input = arg
-            if not os.path.isdir(input):
+            parsedArgs["input"] = arg
+            if not os.path.isdir(parsedArgs["input"]):
                 print("Error: The input source is required to be an accessible directory.")
                 sys.exit(2)
         elif opt in ("-k", "--key"):
-            key = arg
-            if not os.path.isfile(key):
+            parsedArgs["key"] = arg
+            if not os.path.isfile(parsedArgs["key"]):
                 print("Error: The key is required to be an accessible file.")
                 sys.exit(2)
         elif opt in ("-l", "--ls"):
-            doDryRun = True
+            parsedArgs["doDryRun"] = True
         elif opt in ("--no-file-extension"):
-            doExtension = False
+            parsedArgs["doExtension"] = False
         elif opt in ("--no-shred"):
-            if doCleanup == False:
+            if parsedArgs["doCleanup"] == False:
                 print("Warning: --no-shred has no effect when cleanup is disabled.")
-            doShred = False
+            parsedArgs["doShred"] = False
         elif opt in ("-o", "--output"):
-            output = arg
-            if not os.path.isdir(output):
+            parsedArgs["output"] = arg
+            if not os.path.isdir(parsedArgs["output"]):
                 print("Error: The output destination is required to be an accessible directory.")
                 sys.exit(2)
         elif opt in ("-P", "--passfile"):
-            passFile = arg
-            if not os.path.isfile(passFile):
+            parsedArgs["passFile"] = arg
+            if not os.path.isfile(parsedArgs["passFile"]):
                 print("Error: The passfile is required to be an accessible file.")
                 sys.exit(2)
-            if doEncrypt == True:
+            if parsedArgs["doEncrypt"] == True:
                 print("Warning: There is no need for --passfile when encrypting.")
         elif opt in ("-p", "--pepper"):
-            pepper = arg
-            if not os.path.isfile(pepper):
+            parsedArgs["pepper"] = arg
+            if not os.path.isfile(parsedArgs["pepper"]):
                 print("Error: The pepper is required to be an accessible file.")
                 sys.exit(2)
+            with open(arg, 'rb') as f:
+                secrets["pepper"] = f.read()
         elif opt in ("-R", "--retain-paths"):
-            if doEncrypt == False:
+            if parsedArgs["doEncrypt"] == False:
                 print("Warning: --retain-paths has no effect when decrypting.")
-            doSamePaths = True
+            parsedArgs["doSamePaths"] = True
         elif opt in ("-v", "--verbose"):
-            isVerbose = True
+            parsedArgs["isVerbose"] = True
         elif opt in ("-V", "--version"):
             version()
             sys.exit()
@@ -171,38 +180,46 @@ def main(argv):
             except re.error:
                 print("Error: The exclude pattern is required to be a valid regular expression.")
                 sys.exit(2)
-            patterns.append(False)
-            patterns.append(pattern)
+            parsedArgs["patterns"].append(False)
+            parsedArgs["patterns"].append(pattern)
 
-    if doEncrypt == None:
+    if parsedArgs["doEncrypt"] == None:
         print("Error: Must specify either encryption or decryption mode.")
         sys.exit(2)
     
-    if key == None:
+    if parsedArgs["key"] == None:
         print("Error: A key is required for encryption or decryption.")
         sys.exit(2)
 
-    if input == None:
+    if parsedArgs["input"] == None:
         print("Error: An input directory is required to encrypt or decrypt.")
         sys.exit(2)
     
-    if output == None:
+    if parsedArgs["output"] == None:
         print("Error: An output directory is required to encrypt or decrypt.")
         sys.exit(2)
 
-    if doClearInput and (len(patterns) > 0):
+    if parsedArgs["doClearInput"] and (len(parsedArgs["patterns"]) > 0):
         print("Error: Cannot use --clear-input with pattern filtering via. --include or --exclude.")
         sys.exit(2)
 
+    # Track the number of successful and failed files
+    stats = {
+        "total":      0,
+        "successful": 0,
+        "failed":     0,
+        "mutex":      Lock()
+    }
+
     # Start encryption/decryption process
-    if doEncrypt:
-        if isVerbose:
-            print("Attempting to encrypt files in \"" + input + "\" into \"" + output + "\" using key \"" + key + "\"...")
-        encrypt(input, output, key, pepper, patterns, doExtension, doForce, doCleanup, doShred, doClearInput, doSamePaths, doDryRun, isVerbose)
+    if parsedArgs["doEncrypt"]:
+        if parsedArgs["isVerbose"]:
+            print("Attempting to encrypt files in \"" + parsedArgs["input"] + "\" into \"" + parsedArgs["output"] + "\" using key \"" + parsedArgs["key"] + "\"...")
+        encrypt(parsedArgs, secrets, stats)
     else:
-        if isVerbose:
-            print("Attempting to decrypt files in \"" + input + "\" into \"" + output + "\" using key \"" + key + "\"...")
-        decrypt(input, output, key, passFile, pepper, patterns, doExtension, doForce, doCleanup, doShred, doClearInput, doSamePaths, doDryRun, isVerbose)
+        if parsedArgs["isVerbose"]:
+            print("Attempting to decrypt files in \"" + parsedArgs["input"] + "\" into \"" + parsedArgs["output"] + "\" using key \"" + parsedArgs["key"] + "\"...")
+        decrypt(parsedArgs, secrets, stats)
 
 if __name__ == "__main__":
    main(sys.argv[1:])

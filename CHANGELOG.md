@@ -1,5 +1,10 @@
 # Change Log
 
+## 1.3.0
+
+- Added per-file multi-threading
+- Fixed error messages being printed to stdout instead of stderr
+
 ## 1.2.1
 
 - Fixed ciphertext being written back to output on decryption
