@@ -105,12 +105,12 @@ def main(argv):
             parsedArgs["doClearInput"] = True
         elif opt in ("-d", "--decrypt"):
             if parsedArgs["doEncrypt"] == True:
-                print("Error: Cannot enable both encryption and decryption modes at the same time.")
+                print("Error: Cannot enable both encryption and decryption modes at the same time.", file = sys.stderr)
                 sys.exit(2)
             parsedArgs["doEncrypt"] = False
         elif opt in ("-e", "--encrypt"):
             if parsedArgs["doEncrypt"] == False:
-                print("Error: Cannot enable both encryption and decryption modes at the same time.")
+                print("Error: Cannot enable both encryption and decryption modes at the same time.", file = sys.stderr)
                 sys.exit(2)
             parsedArgs["doEncrypt"] = True
         elif opt in ("-f", "--force"):
@@ -123,19 +123,19 @@ def main(argv):
             try:
                 pattern = re.compile(arg)
             except re.error:
-                print("Error: The include pattern is required to be a valid regular expression.")
+                print("Error: The include pattern is required to be a valid regular expression.", file = sys.stderr)
                 sys.exit(2)
             parsedArgs["patterns"].append(True)
             parsedArgs["patterns"].append(pattern)
         elif opt in ("-i", "--input"):
             parsedArgs["input"] = arg
             if not os.path.isdir(parsedArgs["input"]):
-                print("Error: The input source is required to be an accessible directory.")
+                print("Error: The input source is required to be an accessible directory.", file = sys.stderr)
                 sys.exit(2)
         elif opt in ("-k", "--key"):
             parsedArgs["key"] = arg
             if not os.path.isfile(parsedArgs["key"]):
-                print("Error: The key is required to be an accessible file.")
+                print("Error: The key is required to be an accessible file.", file = sys.stderr)
                 sys.exit(2)
         elif opt in ("-l", "--ls"):
             parsedArgs["doDryRun"] = True
@@ -148,19 +148,19 @@ def main(argv):
         elif opt in ("-o", "--output"):
             parsedArgs["output"] = arg
             if not os.path.isdir(parsedArgs["output"]):
-                print("Error: The output destination is required to be an accessible directory.")
+                print("Error: The output destination is required to be an accessible directory.", file = sys.stderr)
                 sys.exit(2)
         elif opt in ("-P", "--passfile"):
             parsedArgs["passFile"] = arg
             if not os.path.isfile(parsedArgs["passFile"]):
-                print("Error: The passfile is required to be an accessible file.")
+                print("Error: The passfile is required to be an accessible file.", file = sys.stderr)
                 sys.exit(2)
             if parsedArgs["doEncrypt"] == True:
-                print("Warning: There is no need for --passfile when encrypting.")
+                print("Warning: There is no need for --passfile when encrypting.", file = sys.stderr)
         elif opt in ("-p", "--pepper"):
             parsedArgs["pepper"] = arg
             if not os.path.isfile(parsedArgs["pepper"]):
-                print("Error: The pepper is required to be an accessible file.")
+                print("Error: The pepper is required to be an accessible file.", file = sys.stderr)
                 sys.exit(2)
             with open(arg, 'rb') as f:
                 secrets["pepper"] = f.read()
@@ -178,29 +178,29 @@ def main(argv):
             try:
                 pattern = re.compile(arg)
             except re.error:
-                print("Error: The exclude pattern is required to be a valid regular expression.")
+                print("Error: The exclude pattern is required to be a valid regular expression.", file = sys.stderr)
                 sys.exit(2)
             parsedArgs["patterns"].append(False)
             parsedArgs["patterns"].append(pattern)
 
     if parsedArgs["doEncrypt"] == None:
-        print("Error: Must specify either encryption or decryption mode.")
+        print("Error: Must specify either encryption or decryption mode.", file = sys.stderr)
         sys.exit(2)
     
     if parsedArgs["key"] == None:
-        print("Error: A key is required for encryption or decryption.")
+        print("Error: A key is required for encryption or decryption.", file = sys.stderr)
         sys.exit(2)
 
     if parsedArgs["input"] == None:
-        print("Error: An input directory is required to encrypt or decrypt.")
+        print("Error: An input directory is required to encrypt or decrypt.", file = sys.stderr)
         sys.exit(2)
     
     if parsedArgs["output"] == None:
-        print("Error: An output directory is required to encrypt or decrypt.")
+        print("Error: An output directory is required to encrypt or decrypt.", file = sys.stderr)
         sys.exit(2)
 
     if parsedArgs["doClearInput"] and (len(parsedArgs["patterns"]) > 0):
-        print("Error: Cannot use --clear-input with pattern filtering via. --include or --exclude.")
+        print("Error: Cannot use --clear-input with pattern filtering via. --include or --exclude.", file = sys.stderr)
         sys.exit(2)
 
     # Track the number of successful and failed files
