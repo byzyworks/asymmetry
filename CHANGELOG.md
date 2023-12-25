@@ -4,6 +4,7 @@
 
 - Added per-file multi-threading
 - Fixed error messages being printed to stdout instead of stderr
+- Some refactoring
 
 ## 1.2.1
 
