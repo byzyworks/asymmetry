@@ -2,14 +2,13 @@
 
 import getopt
 import os
-import re
 import sys
 from   threading import Lock
 
 from algorithm import encrypt, decrypt
 
 # Version information
-VERSION = "1.2.1"
+VERSION = "1.4.0"
 
 # Get script directory
 PYTHON  = '/usr/bin/python3'
@@ -21,25 +20,25 @@ def usage():
     print("Usage: " + PYTHON + " " + THIS + " --encrypt [OPTIONS]")
     print("       " + PYTHON + " " + THIS + " --decrypt [OPTIONS]")
     print("Options:")
-    print("  -c, --cleanup           Enables automatic shredding of files in input directory upon successful output")
-    print("  -d, --decrypt           Flag program to decrypt input directory into output directory (reverse of encryption, cannot be used with it also enabled)")
-    print("  -e, --encrypt           Flag program to encrypt input directory into output directory (reverse of decryption, cannot be used with it also enabled)")
-    print("  -f, --force             Overwrite files in output directory if they already exist")
-    print("  -h, --help              Display help message")
-    print("  -i, --input=<dir>       Input directory (if encrypting should contain plaintext files, and if decrypting should contain encrypted (via. this program) files)")
-    print("  -k, --key=<file>        Asymmetric key file to use for encryption/decryption (if encrypting should be public key, and if decrypting should be private key)")
-    print("  -l, --ls                List the paths of the files in the output directory (paired with their input files), without actually creating them")
-    print("  -n, --include=<regex>   Regular expression for directory inside the input directory (must be encrypted) to include the scope of the operation to; for decryption, based on the original directory structure recorded in the encrypted metadata. Can be given multiple times, and will be processed in order.")
-    print("  -o, --output=<dir>      Output directory (if encrypting should contain encrypted files, and if decrypting should contain plaintext files)")
-    print("  -P, --passfile=<file>   File (or descriptor) with contents to use for decrypting the imported private key for file decryption, if needed")
-    print("  -p, --pepper=<file>     (Re-usable) secret input used when generating hashed names for the encrypted files (when the metadata is encrypted); optional, but strongly recommended for security reasons")
-    print("  -R, --retain-paths      Retain the metadata and directory structure of the input files when encrypting (default is to store the files flat with the metadata encrypted) or decrypting (default is to restore the encrypted metadata)")
-    print("  -v, --verbose           Display verbose output")
-    print("  -V, --version           Display version information")
-    print("  -x, --exclude=<regex>   Regular expression for directory inside the input directory (must be encrypted) to exclude the scope of the operation from; for decryption, based on the original directory structure recorded in the encrypted metadata. Can be given multiple times, and will be processed in order.")
-    print("  --clear-input           Delete the contents of the input directory after a successful encryption/decryption. Also enables --cleanup, but this will ensure the emptied sub-directories are also deleted. This argument cannot be used in combination with --include or --exclude, and will fail if there are still files in the input directory after cleanup.")
-    print("  --no-file-extension     Do not append the \".asym\" file extension to encrypted files (or try to get rid of it when decrypting)")
-    print("  --no-shred              Do not shred/zero-fill files in the input directory when cleanup is enabled; they will simply be deleted")
+    print("  -c, --cleanup          Enables automatic shredding of files in input directory upon successful output")
+    print("  -d, --decrypt          Flag program to decrypt input directory into output directory (reverse of encryption, cannot be used with it also enabled)")
+    print("  -e, --encrypt          Flag program to encrypt input directory into output directory (reverse of decryption, cannot be used with it also enabled)")
+    print("  -f, --force            Overwrite files in output directory if they already exist")
+    print("  -h, --help             Display help message")
+    print("  -i, --input=<dir>      Input directory (if encrypting should contain plaintext files, and if decrypting should contain encrypted (via. this program) files)")
+    print("  -k, --key=<file>       Asymmetric key file to use for encryption/decryption (if encrypting should be public key, and if decrypting should be private key)")
+    print("  -l, --ls               List the paths of the files in the output directory (paired with their input files), without actually creating them")
+    print("  -n, --include=<glob>   Directory inside the input directory (must be encrypted) to include in the scope of the operation; for decryption, based on the original directory structure recorded in the encrypted metadata. Can be given multiple times, and will be processed in order.")
+    print("  -o, --output=<dir>     Output directory (if encrypting should contain encrypted files, and if decrypting should contain plaintext files)")
+    print("  -P, --passfile=<file>  File (or descriptor) with contents to use for decrypting the imported private key for file decryption, if needed")
+    print("  -p, --pepper=<file>    (Re-usable) secret input used when generating hashed names for the encrypted files (when the metadata is encrypted); optional, but strongly recommended for security reasons")
+    print("  -R, --retain-paths     Retain the metadata and directory structure of the input files when encrypting (default is to store the files flat with the metadata encrypted) or decrypting (default is to restore the encrypted metadata)")
+    print("  -v, --verbose          Display verbose output")
+    print("  -V, --version          Display version information")
+    print("  -x, --exclude=<glob>   Directory inside the input directory (must be encrypted) to exclude from the scope of the operation; for decryption, based on the original directory structure recorded in the encrypted metadata. Can be given multiple times, and will be processed in order.")
+    print("  --clear-input          Delete the contents of the input directory after a successful encryption/decryption. Also enables --cleanup, but this will ensure the emptied sub-directories are also deleted. This argument cannot be used in combination with --include or --exclude, and will fail if there are still files in the input directory after cleanup.")
+    print("  --no-file-extension    Do not append the \".asym\" file extension to encrypted files (or try to get rid of it when decrypting)")
+    print("  --no-shred             Do not shred/zero-fill files in the input directory when cleanup is enabled; they will simply be deleted")
 
 # Show version information
 def version():
@@ -119,12 +118,7 @@ def main(argv):
             usage()
             sys.exit()
         elif opt in ("-n", "--include"):
-            pattern = None
-            try:
-                pattern = re.compile(arg)
-            except re.error:
-                print("Error: The include pattern is required to be a valid regular expression.", file = sys.stderr)
-                sys.exit(2)
+            pattern = arg
             parsedArgs["patterns"].append(True)
             parsedArgs["patterns"].append(pattern)
         elif opt in ("-i", "--input"):
@@ -174,12 +168,7 @@ def main(argv):
             version()
             sys.exit()
         elif opt in ("-x", "--exclude"):
-            pattern = None
-            try:
-                pattern = re.compile(arg)
-            except re.error:
-                print("Error: The exclude pattern is required to be a valid regular expression.", file = sys.stderr)
-                sys.exit(2)
+            pattern = arg
             parsedArgs["patterns"].append(False)
             parsedArgs["patterns"].append(pattern)
 

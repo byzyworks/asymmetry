@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Encryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -28,7 +28,7 @@
         },
         {
             "name": "Dry Encryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -50,7 +50,7 @@
         },
         {
             "name": "Same-Path Encryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -72,7 +72,7 @@
         },
         {
             "name": "Narrow Encryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -90,16 +90,16 @@
                 "--force",
                 "--verbose",
                 "--include",
-                "c/",
+                "c/**",
                 "--exclude",
-                "c/e/",
+                "c/e/*",
                 "--include",
-                "(.+)/6"
+                "**/6"
             ]
         },
         {
             "name": "Encryption Test + Cleanup",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -122,7 +122,7 @@
         },
         {
             "name": "Decryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -146,7 +146,7 @@
         },
         {
             "name": "Dry Decryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -170,7 +170,7 @@
         },
         {
             "name": "Same-Path Decryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -194,7 +194,7 @@
         },
         {
             "name": "Narrow Decryption Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",
@@ -214,16 +214,16 @@
                 "--force",
                 "--verbose",
                 "--include",
-                "c/",
+                "c/**",
                 "--exclude",
-                "c/e/",
+                "c/e/*",
                 "--include",
-                "(.+)/6"
+                "**/6"
             ]
         },
         {
             "name": "Decryption Test + Cleanup",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "console": "integratedTerminal",

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
+import fnmatch
 import hashlib
 import hmac
 import json
 import os
-import re
 import sys
 from   threading import Thread
 
@@ -55,7 +55,8 @@ def doInclude(filepath, patterns):
         include = patterns[i]
         pattern = patterns[i + 1]
 
-        if re.match(pattern, filepath):
+        # Check if the filepath matches the pattern
+        if fnmatch.fnmatch(filepath, pattern):
             matched = include
 
         i += 2

@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.4.0
+
+- Removed regular expressions as arguments to use with `--include` and `--exclude` in favor of using (simpler and more appropriate) glob patterns
+
 ## 1.3.0
 
 - Added per-file multi-threading
